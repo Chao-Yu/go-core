@@ -27,11 +27,11 @@ type KafkaConfig struct {
 }
 
 // getPoolKey 构造 producerPool 的 key
-func getPoolKey(c *KafkaConfig, topic string) string {
-	if c.Name == "" {
+func getPoolKey(kafkaName, topic string) string {
+	if kafkaName == "" {
 		return topic // 向后兼容：未设置 Name 时退化为纯 topic
 	}
-	return c.Name + ":" + topic
+	return kafkaName + ":" + topic
 }
 
 type KafkaProducer struct {
@@ -44,7 +44,7 @@ type KafkaProducer struct {
 func InitProducerForTopics(ctx context.Context, c *KafkaConfig, topics []string) {
 	for _, topic := range topics {
 		producer := newKafkaProducerWithTopic(ctx, c, topic)
-		key := getPoolKey(c, topic)
+		key := getPoolKey(c.Name, topic)
 		producerPool.LoadOrStore(key, producer)
 		fmt.Println("Kafka producer initialized for topic:", topic)
 	}
@@ -83,8 +83,8 @@ func newKafkaProducerWithTopic(ctx context.Context, c *KafkaConfig, topic string
 }
 
 // GetProducerByTopic 获取指定 topic 的 producer
-func GetProducerByTopic(c *KafkaConfig, topic string) (*KafkaProducer, error) {
-	key := getPoolKey(c, topic)
+func GetProducerByTopic(kafkaName, topic string) (*KafkaProducer, error) {
+	key := getPoolKey(kafkaName, topic)
 	val, ok := producerPool.Load(key)
 	if !ok {
 		return nil, errors.New("producer not found for topic: " + topic)
@@ -154,7 +154,7 @@ func (k *KafkaProducer) reconnect(ctx context.Context) error {
 	}
 	k.conn = kConn
 	// 将重连后的生产者放回连接池
-	producerPool.Store(getPoolKey(k.config, k.topic), k)
+	producerPool.Store(getPoolKey(k.config.Name, k.topic), k)
 	return nil
 }
 
